@@ -22,6 +22,19 @@ export function shapeBooking(b) {
     workerLat: b.workerLat,
     workerLng: b.workerLng,
     price: b.price,
+
+    paymentStatus:
+  b.paymentStatus || "pending",
+
+paymentProvider:
+  b.paymentProvider || "",
+
+razorpayPaymentId:
+  b.razorpayPaymentId || "",
+
+paidAt:
+  b.paidAt || null,
+
     ratingStars: b.ratingStars ?? null,
     ratingComment: b.ratingComment || "",
     createdAt: b.createdAt,

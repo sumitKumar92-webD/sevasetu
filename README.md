@@ -26,13 +26,13 @@ src/db/
 
 `src/db/index.js` exports:
 
-| Export        | What it does                                                              |
-| ------------- | ------------------------------------------------------------------------- |
-| `connectDB()` | Connects Mongoose to `DATABASE_URL` (cached, safe to call on every request) |
-| `getDB()`     | Same but never throws — returns `{ ok, error }` for health checks          |
-| `dbStatus()`  | `{ connected, usingFallback, error }`                                       |
-| `toJson()`    | Converts a Mongoose doc into a plain object with `id` instead of `_id`      |
-| `idOf()` / `sameId()` | Safe ObjectId ↔ string helpers (populated docs included)          |
+| Export                | What it does                                                                |
+| --------------------- | --------------------------------------------------------------------------- |
+| `connectDB()`         | Connects Mongoose to `DATABASE_URL` (cached, safe to call on every request) |
+| `getDB()`             | Same but never throws — returns `{ ok, error }` for health checks           |
+| `dbStatus()`          | `{ connected, usingFallback, error }`                                       |
+| `toJson()`            | Converts a Mongoose doc into a plain object with `id` instead of `_id`      |
+| `idOf()` / `sameId()` | Safe ObjectId ↔ string helpers (populated docs included)                    |
 
 ### No MongoDB installed? No problem
 
@@ -108,11 +108,11 @@ time the API is hit.
 
 ### Demo accounts (password: `password123`)
 
-| Role     | Email                   |
-| -------- | ----------------------- |
-| Customer | customer@sevasetu.in    |
-| Worker   | worker1@sevasetu.in     |
-| Admin    | admin@sevasetu.in       |
+| Role     | Email                |
+| -------- | -------------------- |
+| Customer | customer@sevasetu.in |
+| Worker   | worker1@sevasetu.in  |
+| Admin    | admin@sevasetu.in    |
 
 > Tip for the demo: log in as the customer in one browser, book a service, then log in as the
 > assigned worker in a private window, open the same job and press **Start trip** → watch the
@@ -122,30 +122,30 @@ time the API is hit.
 
 ## 5. API reference
 
-| Method | Route | Description |
-| ------ | ----- | ----------- |
-| GET | `/api/health` | health check (connects Mongo, seeds demo data) |
-| POST | `/api/auth/signup` | create customer/worker/admin (worker profile included) |
-| POST | `/api/auth/login` | JWT cookie login |
-| POST | `/api/auth/logout` | clear cookie |
-| GET | `/api/auth/me` | current session (user + worker profile) |
-| GET | `/api/services` | service catalogue |
-| GET | `/api/workers?service=&sort=&q=&lat=&lng=&onlineOnly=` | ranked worker search |
-| GET/PATCH | `/api/workers/me` | worker profile, availability toggle, photo/video, location |
-| GET | `/api/bookings` | role-aware booking list |
-| POST | `/api/bookings` | create booking + **smart auto-assignment** |
-| GET | `/api/bookings/:id` | booking detail (live positions) |
-| PATCH | `/api/bookings/:id` | `{status}` \| `{action:"location",lat,lng}` \| `{action:"simulate"}` \| `{action:"reassign"}` |
-| POST | `/api/bookings/:id/rate` | `{stars, comment}` → updates worker ranking |
-| GET | `/api/admin/stats` | platform stats (Mongoose aggregations) |
-| GET | `/api/admin/workers` | all workers incl. pending |
-| PATCH | `/api/admin/workers/:id` | `{verification:"approved"\|"rejected"}` |
+| Method    | Route                                                  | Description                                                                                   |
+| --------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| GET       | `/api/health`                                          | health check (connects Mongo, seeds demo data)                                                |
+| POST      | `/api/auth/signup`                                     | create customer/worker/admin (worker profile included)                                        |
+| POST      | `/api/auth/login`                                      | JWT cookie login                                                                              |
+| POST      | `/api/auth/logout`                                     | clear cookie                                                                                  |
+| GET       | `/api/auth/me`                                         | current session (user + worker profile)                                                       |
+| GET       | `/api/services`                                        | service catalogue                                                                             |
+| GET       | `/api/workers?service=&sort=&q=&lat=&lng=&onlineOnly=` | ranked worker search                                                                          |
+| GET/PATCH | `/api/workers/me`                                      | worker profile, availability toggle, photo/video, location                                    |
+| GET       | `/api/bookings`                                        | role-aware booking list                                                                       |
+| POST      | `/api/bookings`                                        | create booking + **smart auto-assignment**                                                    |
+| GET       | `/api/bookings/:id`                                    | booking detail (live positions)                                                               |
+| PATCH     | `/api/bookings/:id`                                    | `{status}` \| `{action:"location",lat,lng}` \| `{action:"simulate"}` \| `{action:"reassign"}` |
+| POST      | `/api/bookings/:id/rate`                               | `{stars, comment}` → updates worker ranking                                                   |
+| GET       | `/api/admin/stats`                                     | platform stats (Mongoose aggregations)                                                        |
+| GET       | `/api/admin/workers`                                   | all workers incl. pending                                                                     |
+| PATCH     | `/api/admin/workers/:id`                               | `{verification:"approved"\|"rejected"}`                                                       |
 
 ---
 
 ## 6. Deploying to Render
 
-1. Create a free cluster on **MongoDB Atlas** → *Database Access* (user) → *Network Access*
+1. Create a free cluster on **MongoDB Atlas** → _Database Access_ (user) → _Network Access_
    (allow `0.0.0.0/0` for Render) → copy the connection string.
 2. Push this repo to GitHub.
 3. Render → **New → Web Service** → connect the repo:
@@ -153,7 +153,7 @@ time the API is hit.
    - Start command: `npm run start`
    - Environment variables:
      ```
-     DATABASE_URL = mongodb+srv://user:password@cluster.mongodb.net/sevasetu
+     DATABASE_URL = mongodb+srv://yadavsumit62436_db_user:fbyGF4ljoSn9gFO8@cluster.mongodb.net/sevasetu
      JWT_SECRET   = <a long random string>
      CLIENT_URL   = https://your-app.onrender.com
      NODE_VERSION = 20

@@ -24,6 +24,43 @@ const bookingSchema = new mongoose.Schema(
     workerLat: { type: Number, default: null },
     workerLng: { type: Number, default: null },
     price: { type: Number, default: 0 },
+
+    paymentStatus: {
+  type: String,
+  enum: [
+    "pending",
+    "paid",
+    "failed",
+    "refunded",
+  ],
+  default: "pending",
+  index: true,
+},
+
+paymentProvider: {
+  type: String,
+  default: "razorpay",
+},
+
+razorpayOrderId: {
+  type: String,
+  default: null,
+  index: true,
+},
+
+razorpayPaymentId: {
+  type: String,
+  default: null,
+  unique: true,
+  sparse: true,
+},
+
+paidAt: {
+  type: Date,
+  default: null,
+},
+
+
     // denormalised rating (kept on the booking so history renders in one query)
     ratingStars: { type: Number, default: null },
     ratingComment: { type: String, default: "" },
