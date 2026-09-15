@@ -112,6 +112,26 @@ function readableDateTime(
   );
 }
 
+function loadRazorpayCheckout() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const existing = document.querySelector(
+      'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+    );
+    if (existing) {
+      existing.addEventListener("load", () => resolve(true), { once: true });
+      existing.addEventListener("error", () => resolve(false), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
 export default function TrackPage() {
   const {
     t,
@@ -155,6 +175,16 @@ export default function TrackPage() {
     comment,
     setComment,
   ] = useState("");
+
+  const [
+    paying,
+    setPaying,
+  ] = useState(false);
+
+  const [
+    confirmingCash,
+    setConfirmingCash,
+  ] = useState(false);
 
   const watchRef =
     useRef(null);
@@ -459,6 +489,96 @@ export default function TrackPage() {
         );
       }
     };
+
+
+  const payAfterWork = async () => {
+    if (!booking || booking.status !== "completed") {
+      toast.error("Work complete hone ke baad payment available hoga.");
+      return;
+    }
+    if (booking.paymentStatus === "paid") {
+      toast.success("Payment already completed.");
+      return;
+    }
+
+    setPaying(true);
+    try {
+      const loaded = await loadRazorpayCheckout();
+      if (!loaded) throw new Error("Razorpay checkout could not load.");
+
+      const paymentOrder = await post(`/api/bookings/${id}/payment/order`, {});
+      const { key, order } = paymentOrder;
+      if (!key || !order?.id) throw new Error("Invalid payment order.");
+
+      const checkout = new window.Razorpay({
+        key,
+        order_id: order.id,
+        amount: order.amount,
+        currency: order.currency || "INR",
+        name: "SevaSetu",
+        description: `${serviceLabel(booking.service, i18n.language)} - completed work payment`,
+        prefill: {
+          name: user?.name || booking.customerName || "",
+          email: user?.email || "",
+          contact: user?.phone || booking.customerPhone || "",
+        },
+        theme: { color: "#0f766e" },
+        handler: async (response) => {
+          try {
+            const data = await post(`/api/bookings/${id}/payment/verify`, {
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            setBooking(data.booking);
+            toast.success("Online payment successful. Ab rating de sakte hain.");
+          } catch (error) {
+            toast.error(error.message || "Payment verification failed.");
+          } finally {
+            setPaying(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setPaying(false);
+            toast("Payment cancelled.");
+          },
+        },
+      });
+
+      checkout.on("payment.failed", (response) => {
+        setPaying(false);
+        toast.error(response?.error?.description || "Payment failed.");
+      });
+      checkout.open();
+    } catch (error) {
+      setPaying(false);
+      toast.error(error.message || "Could not start payment.");
+    }
+  };
+
+  const confirmCashPayment = async () => {
+    if (!booking || booking.status !== "completed") {
+      toast.error("Work complete hone ke baad cash payment available hoga.");
+      return;
+    }
+    if (booking.paymentStatus === "paid") {
+      toast.success("Payment already completed.");
+      return;
+    }
+    if (!window.confirm(`Kya aapne worker ko ₹${booking.price} cash de diya hai?`)) return;
+
+    setConfirmingCash(true);
+    try {
+      const data = await post(`/api/bookings/${id}/payment/cash`, {});
+      setBooking(data.booking);
+      toast.success("Cash payment confirmed. Ab rating de sakte hain.");
+    } catch (error) {
+      toast.error(error.message || "Cash payment could not be confirmed.");
+    } finally {
+      setConfirmingCash(false);
+    }
+  };
 
   if (
     loading ||
@@ -877,10 +997,70 @@ export default function TrackPage() {
               </div>
             )}
 
+          {/* Payment options after work completion */}
+          {isCustomer &&
+            booking.status === "completed" &&
+            booking.paymentStatus !== "paid" && (
+              <div className="card space-y-4 border-amber-200 bg-amber-50/50 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-bold text-gray-900">✅ Work completed</p>
+                    <p className="mt-1 text-sm text-gray-600">
+                      Worker ne kaam complete kar diya hai. Payment method select karein.
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Amount payable</p>
+                    <p className="text-2xl font-extrabold text-gray-900">₹{booking.price}</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={confirmCashPayment}
+                    disabled={confirmingCash || paying}
+                    className="rounded-2xl border-2 border-emerald-200 bg-white p-4 text-left transition hover:border-emerald-500 hover:bg-emerald-50 disabled:opacity-60"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-3xl">💵</span>
+                      <div>
+                        <p className="font-bold text-gray-900">Cash Payment</p>
+                        <p className="text-xs text-gray-500">Cash dene ke baad confirm karein</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 rounded-xl bg-emerald-600 px-3 py-2 text-center text-sm font-semibold text-white">
+                      {confirmingCash ? "Confirming…" : `Confirm Cash ₹${booking.price}`}
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={payAfterWork}
+                    disabled={paying || confirmingCash}
+                    className="rounded-2xl border-2 border-teal-200 bg-white p-4 text-left transition hover:border-teal-500 hover:bg-teal-50 disabled:opacity-60"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-3xl">💳</span>
+                      <div>
+                        <p className="font-bold text-gray-900">Online Payment</p>
+                        <p className="text-xs text-gray-500">UPI, card, net banking or wallet</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 rounded-xl bg-teal-700 px-3 py-2 text-center text-sm font-semibold text-white">
+                      {paying ? "Opening Razorpay…" : `Pay Online ₹${booking.price}`}
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+
           {/* Rating */}
           {isCustomer &&
             booking.status ===
-              "completed" && (
+              "completed" &&
+            booking.paymentStatus ===
+              "paid" && (
               <div className="card space-y-3 p-4">
                 <p className="font-semibold text-gray-900">
                   {t(

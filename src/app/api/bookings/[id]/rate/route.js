@@ -25,6 +25,12 @@ export async function POST(request, context) {
   if (shaped.status !== "completed") {
     return Response.json({ error: "You can rate only completed jobs." }, { status: 400 });
   }
+  if (shaped.paymentStatus !== "paid") {
+    return Response.json(
+      { error: "Please complete the payment before rating the worker." },
+      { status: 402 }
+    );
+  }
   if (shaped.ratingStars) {
     return Response.json({ error: "This job is already rated." }, { status: 409 });
   }

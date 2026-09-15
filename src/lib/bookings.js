@@ -98,6 +98,10 @@ export function shapeBooking(
       booking.paymentStatus ||
       "pending",
 
+    paymentMethod:
+      booking.paymentMethod ||
+      null,
+
     paymentProvider:
       booking.paymentProvider ||
       "pay_later",

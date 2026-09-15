@@ -149,6 +149,12 @@ const bookingSchema = new mongoose.Schema(
      * pay_later:
      * आज काम पूरा होने के बाद payment
      */
+    paymentMethod: {
+      type: String,
+      enum: ["cash", "online", null],
+      default: null,
+    },
+
     paymentProvider: {
       type: String,
 
