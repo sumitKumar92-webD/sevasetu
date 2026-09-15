@@ -3,285 +3,125 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
-const en = {
-  app: {
-    name: "SevaSetu",
-    tagline: "Smart Cooperative Service Platform",
-    loading: "Loading...",
-    save: "Save",
-    cancel: "Cancel",
-    close: "Close",
-    search: "Search",
-    all: "All",
-    optional: "optional",
-  },
-  nav: {
-    home: "Home",
-    services: "Services",
-    book: "Book a Service",
-    dashboard: "Dashboard",
-    login: "Login",
-    signup: "Sign Up",
-    logout: "Logout",
-    admin: "Admin",
-    bookings: "My Bookings",
-  },
-  home: {
-    heroTitle: "Verified local pros, matched in seconds",
-    heroText:
-      "SevaSetu connects you with nearby verified electricians, plumbers, cleaners and more — with live tracking from doorstep to done.",
-    cta: "Book a service",
-    browse: "Browse workers",
-    popular: "Popular services",
-    how: "How it works",
-    step1: "Tell us what you need",
-    step1d: "Pick a service, date and location. Emergency? One tap.",
-    step2: "We auto-assign the best pro",
-    step2d: "Ranked by distance, rating and availability.",
-    step3: "Track live and rate",
-    step3d: "Watch your pro arrive on the map, then rate the job.",
-    stat1: "Verified workers",
-    stat2: "Services",
-    stat3: "Avg. rating",
-  },
-  auth: {
-    loginTitle: "Welcome back",
-    signupTitle: "Create your account",
-    name: "Full name",
-    email: "Email",
-    phone: "Phone",
-    password: "Password",
-    role: "I am a",
-    customer: "Customer",
-    worker: "Worker",
-    admin: "Admin",
-    service: "My service",
-    price: "Price per hour (₹)",
-    experience: "Experience (years)",
-    haveAccount: "Already have an account?",
-    noAccount: "New to SevaSetu?",
-    demo: "Demo accounts",
-  },
-  booking: {
-    title: "Book a service",
-    service: "Service",
-    datetime: "Date & time",
-    notes: "Notes for the worker",
-    address: "Address",
-    emergency: "Emergency booking (+25%)",
-    submit: "Find & assign best worker",
-    finding: "Finding the best worker near you...",
-    chooseWorker: "Preferred worker (optional)",
-    auto: "Auto-assign (recommended)",
-    useLocation: "Use my location",
-    created: "Booking confirmed!",
-    history: "Booking history",
-    empty: "No bookings yet.",
-    track: "Track live",
-    rate: "Rate worker",
-    rated: "Rated",
-    cancel: "Cancel booking",
-  },
-  status: {
-    searching: "Searching",
-    assigned: "Assigned",
-    on_the_way: "On the way",
-    completed: "Completed",
-    cancelled: "Cancelled",
-  },
-  worker: {
-    dashboard: "Worker dashboard",
-    online: "Online",
-    offline: "Offline",
-    availability: "Availability",
-    profile: "Profile & verification",
-    photo: "Profile photo",
-    video: "Skill video link",
-    upload: "Upload photo",
-    verified: "Verified",
-    pending: "Verification pending",
-    rejected: "Rejected",
-    jobs: "My jobs",
-    earnings: "Estimated earnings",
-    rating: "Rating",
-    start: "Start trip",
-    complete: "Mark completed",
-    shareLocation: "Share live location",
-    stopSharing: "Stop sharing",
-    distance: "away",
-  },
-  admin: {
-    dashboard: "Admin dashboard",
-    stats: "Platform stats",
-    verifications: "Skill verifications",
-    approve: "Approve",
-    reject: "Reject",
-    users: "Users",
-    workers: "Workers",
-    bookings: "Bookings",
-    revenue: "Revenue",
-    pending: "Pending verification",
-    allBookings: "All bookings",
-  },
-  track: {
-    title: "Live tracking",
-    you: "You",
-    workerHere: "Your worker",
-    eta: "ETA",
-    mins: "min",
-    refresh: "Live updates every 3s",
-  },
-  rating: {
-    title: "How was the service?",
-    comment: "Leave a comment",
-    submit: "Submit rating",
-    thanks: "Thanks for your feedback!",
-  },
-};
+import en from "./locales/en";
+import as from "./locales/as";
+import bn from "./locales/bn";
+import brx from "./locales/brx";
+import doi from "./locales/doi";
+import gu from "./locales/gu";
+import hi from "./locales/hi";
+import kn from "./locales/kn";
+import ks from "./locales/ks";
+import kok from "./locales/kok";
+import mai from "./locales/mai";
+import ml from "./locales/ml";
+import mni from "./locales/mni";
+import mr from "./locales/mr";
+import ne from "./locales/ne";
+import orLocale from "./locales/or";
+import pa from "./locales/pa";
+import sa from "./locales/sa";
+import sat from "./locales/sat";
+import sd from "./locales/sd";
+import ta from "./locales/ta";
+import te from "./locales/te";
+import ur from "./locales/ur";
 
-const hi = {
-  app: {
-    name: "सेवासेतु",
-    tagline: "स्मार्ट सहकारी सेवा मंच",
-    loading: "लोड हो रहा है...",
-    save: "सहेजें",
-    cancel: "रद्द करें",
-    close: "बंद करें",
-    search: "खोजें",
-    all: "सभी",
-    optional: "वैकल्पिक",
+const resources = {
+  en: {
+    translation: en,
   },
-  nav: {
-    home: "होम",
-    services: "सेवाएं",
-    book: "सेवा बुक करें",
-    dashboard: "डैशबोर्ड",
-    login: "लॉगिन",
-    signup: "साइन अप",
-    logout: "लॉगआउट",
-    admin: "एडमिन",
-    bookings: "मेरी बुकिंग",
+  as: {
+    translation: as,
   },
-  home: {
-    heroTitle: "सत्यापित कारीगर, सेकंडों में",
-    heroText:
-      "सेवासेतु आपको पास के सत्यापित इलेक्ट्रीशियन, प्लंबर, सफाईकर्मी और अन्य से जोड़ता है — लाइव ट्रैकिंग के साथ।",
-    cta: "सेवा बुक करें",
-    browse: "कारीगर देखें",
-    popular: "लोकप्रिय सेवाएं",
-    how: "यह कैसे काम करता है",
-    step1: "बताइए आपको क्या चाहिए",
-    step1d: "सेवा, तारीख और स्थान चुनें। आपात स्थिति? एक टैप।",
-    step2: "हम सबसे अच्छा कारीगर भेजते हैं",
-    step2d: "दूरी, रेटिंग और उपलब्धता के आधार पर।",
-    step3: "लाइव ट्रैक करें और रेट करें",
-    step3d: "नक्शे पर कारीगर को आते देखें, फिर रेटिंग दें।",
-    stat1: "सत्यापित कारीगर",
-    stat2: "सेवाएं",
-    stat3: "औसत रेटिंग",
+  bn: {
+    translation: bn,
   },
-  auth: {
-    loginTitle: "वापसी पर स्वागत है",
-    signupTitle: "अपना खाता बनाएं",
-    name: "पूरा नाम",
-    email: "ईमेल",
-    phone: "फ़ोन",
-    password: "पासवर्ड",
-    role: "मैं हूँ",
-    customer: "ग्राहक",
-    worker: "कारीगर",
-    admin: "एडमिन",
-    service: "मेरी सेवा",
-    price: "प्रति घंटा शुल्क (₹)",
-    experience: "अनुभव (वर्ष)",
-    haveAccount: "पहले से खाता है?",
-    noAccount: "सेवासेतु पर नए हैं?",
-    demo: "डेमो खाते",
+  brx: {
+    translation: brx,
   },
-  booking: {
-    title: "सेवा बुक करें",
-    service: "सेवा",
-    datetime: "तारीख और समय",
-    notes: "कारीगर के लिए नोट",
-    address: "पता",
-    emergency: "आपातकालीन बुकिंग (+25%)",
-    submit: "सर्वश्रेष्ठ कारीगर खोजें",
-    finding: "आपके पास सबसे अच्छा कारीगर ढूंढ रहे हैं...",
-    chooseWorker: "पसंदीदा कारीगर (वैकल्पिक)",
-    auto: "स्वतः चयन (अनुशंसित)",
-    useLocation: "मेरा स्थान उपयोग करें",
-    created: "बुकिंग पक्की!",
-    history: "बुकिंग इतिहास",
-    empty: "अभी कोई बुकिंग नहीं।",
-    track: "लाइव ट्रैक",
-    rate: "रेटिंग दें",
-    rated: "रेट किया गया",
-    cancel: "बुकिंग रद्द करें",
+  doi: {
+    translation: doi,
   },
-  status: {
-    searching: "खोज रहे हैं",
-    assigned: "नियुक्त",
-    on_the_way: "रास्ते में",
-    completed: "पूर्ण",
-    cancelled: "रद्द",
+  gu: {
+    translation: gu,
   },
-  worker: {
-    dashboard: "कारीगर डैशबोर्ड",
-    online: "ऑनलाइन",
-    offline: "ऑफलाइन",
-    availability: "उपलब्धता",
-    profile: "प्रोफ़ाइल और सत्यापन",
-    photo: "प्रोफ़ाइल फ़ोटो",
-    video: "स्किल वीडियो लिंक",
-    upload: "फ़ोटो अपलोड करें",
-    verified: "सत्यापित",
-    pending: "सत्यापन लंबित",
-    rejected: "अस्वीकृत",
-    jobs: "मेरे काम",
-    earnings: "अनुमानित कमाई",
-    rating: "रेटिंग",
-    start: "यात्रा शुरू करें",
-    complete: "पूर्ण करें",
-    shareLocation: "लाइव लोकेशन भेजें",
-    stopSharing: "भेजना बंद करें",
-    distance: "दूर",
+  hi: {
+    translation: hi,
   },
-  admin: {
-    dashboard: "एडमिन डैशबोर्ड",
-    stats: "प्लेटफ़ॉर्म आंकड़े",
-    verifications: "स्किल सत्यापन",
-    approve: "स्वीकृत करें",
-    reject: "अस्वीकार करें",
-    users: "उपयोगकर्ता",
-    workers: "कारीगर",
-    bookings: "बुकिंग",
-    revenue: "राजस्व",
-    pending: "सत्यापन लंबित",
-    allBookings: "सभी बुकिंग",
+  kn: {
+    translation: kn,
   },
-  track: {
-    title: "लाइव ट्रैकिंग",
-    you: "आप",
-    workerHere: "आपका कारीगर",
-    eta: "पहुंचने का समय",
-    mins: "मिनट",
-    refresh: "हर 3 सेकंड में अपडेट",
+  ks: {
+    translation: ks,
   },
-  rating: {
-    title: "सेवा कैसी रही?",
-    comment: "टिप्पणी लिखें",
-    submit: "रेटिंग भेजें",
-    thanks: "आपकी प्रतिक्रिया के लिए धन्यवाद!",
+  kok: {
+    translation: kok,
+  },
+  mai: {
+    translation: mai,
+  },
+  ml: {
+    translation: ml,
+  },
+  mni: {
+    translation: mni,
+  },
+  mr: {
+    translation: mr,
+  },
+  ne: {
+    translation: ne,
+  },
+  or: {
+    translation: orLocale,
+  },
+  pa: {
+    translation: pa,
+  },
+  sa: {
+    translation: sa,
+  },
+  sat: {
+    translation: sat,
+  },
+  sd: {
+    translation: sd,
+  },
+  ta: {
+    translation: ta,
+  },
+  te: {
+    translation: te,
+  },
+  ur: {
+    translation: ur,
   },
 };
 
 if (!i18n.isInitialized) {
-  i18n.use(initReactI18next).init({
-    resources: { en: { translation: en }, hi: { translation: hi } },
-    lng: "en",
-    fallbackLng: "en",
-    interpolation: { escapeValue: false },
-  });
+  i18n
+    .use(initReactI18next)
+    .init({
+      resources,
+
+      supportedLngs:
+        Object.keys(resources),
+
+      lng: "en",
+
+      fallbackLng: "en",
+
+      interpolation: {
+        escapeValue: false,
+      },
+
+      returnEmptyString: false,
+
+      react: {
+        useSuspense: false,
+      },
+    });
 }
 
 export default i18n;

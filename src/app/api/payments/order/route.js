@@ -3,28 +3,89 @@ import {
   unauthorized,
 } from "@/lib/auth";
 
-import { SERVICES } from "@/lib/services";
-import { listWorkers } from "@/lib/workers";
-import { rankWorkers } from "@/lib/geo";
+import {
+  SERVICES,
+} from "@/lib/services";
+
+import {
+  listWorkers,
+} from "@/lib/workers";
+
+import {
+  rankWorkers,
+} from "@/lib/geo";
 
 import {
   createRazorpayOrder,
   publicRazorpayKey,
 } from "@/lib/razorpay";
 
-export const dynamic = "force-dynamic";
+export const dynamic =
+  "force-dynamic";
 
-export async function POST(request) {
-  const session = await getCurrentUser();
+/**
+ * India की current date YYYY-MM-DD में।
+ */
+function indiaDateKey(
+  value = new Date()
+) {
+  return new Date(
+    value
+  ).toLocaleDateString(
+    "en-CA",
+    {
+      timeZone:
+        "Asia/Kolkata",
+
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }
+  );
+}
+
+/**
+ * datetime-local value से YYYY-MM-DD।
+ */
+function selectedDateKey(
+  value
+) {
+  const text =
+    String(value || "");
+
+  if (
+    /^\d{4}-\d{2}-\d{2}/.test(
+      text
+    )
+  ) {
+    return text.slice(0, 10);
+  }
+
+  return "";
+}
+
+/**
+ * Future-date booking के लिए
+ * Razorpay order create करना।
+ */
+export async function POST(
+  request
+) {
+  const session =
+    await getCurrentUser();
 
   if (!session) {
     return unauthorized();
   }
 
-  if (session.user.role !== "customer") {
+  if (
+    session.user.role !==
+    "customer"
+  ) {
     return Response.json(
       {
-        error: "Only customers can make payments.",
+        error:
+          "Only customers can make payments.",
       },
       {
         status: 403,
@@ -33,16 +94,26 @@ export async function POST(request) {
   }
 
   try {
-    const body = await request.json();
+    const body =
+      await request.json();
 
-    const service = SERVICES.find(
-      (item) => item.key === body.service
-    );
+    /**
+     * Service validate करें।
+     */
+    const selectedService =
+      SERVICES.find(
+        (service) =>
+          service.key ===
+          body.service
+      );
 
-    if (!service) {
+    if (
+      !selectedService
+    ) {
       return Response.json(
         {
-          error: "Please choose a valid service.",
+          error:
+            "Please choose a valid service.",
         },
         {
           status: 400,
@@ -50,63 +121,216 @@ export async function POST(request) {
       );
     }
 
-    const lat = Number(body.lat) || 28.6139;
-    const lng = Number(body.lng) || 77.209;
-    const isEmergency = Boolean(body.isEmergency);
+    /**
+     * Selected booking date।
+     */
+    const workDateKey =
+      selectedDateKey(
+        body.scheduledAt
+      );
 
-    let workers = await listWorkers({
-      service: service.key,
-      onlineOnly: true,
-    });
-
-    if (!workers.length) {
-      workers = await listWorkers({
-        service: service.key,
-      });
+    if (!workDateKey) {
+      return Response.json(
+        {
+          error:
+            "Please choose a valid booking date.",
+        },
+        {
+          status: 400,
+        }
+      );
     }
 
-    const rankedWorkers = rankWorkers(
-      workers,
-      lat,
-      lng,
-      isEmergency ? "distance" : "smart"
-    );
+    const todayDateKey =
+      indiaDateKey();
 
-    let selectedWorker = null;
+    /**
+     * Past date रोकें।
+     */
+    if (
+      workDateKey <
+      todayDateKey
+    ) {
+      return Response.json(
+        {
+          error:
+            "Past date ki booking nahi ho sakti.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    /**
+     * आज की booking में Razorpay payment नहीं।
+     * आज payment काम पूरा होने के बाद होगी।
+     */
+    if (
+      workDateKey ===
+      todayDateKey
+    ) {
+      return Response.json(
+        {
+          error:
+            "Aaj ki booking ka payment kaam complete hone ke baad hoga.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const isEmergency =
+      Boolean(
+        body.isEmergency
+      );
+
+    /**
+     * Future emergency booking allowed नहीं।
+     */
+    if (isEmergency) {
+      return Response.json(
+        {
+          error:
+            "Emergency booking sirf aaj ke liye available hai.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const lat =
+      Number(body.lat) ||
+      28.6139;
+
+    const lng =
+      Number(body.lng) ||
+      77.209;
+
+    /**
+     * Worker selection।
+     */
+    let workers =
+      await listWorkers({
+        service:
+          selectedService.key,
+
+        onlineOnly: true,
+      });
+
+    if (
+      !workers.length
+    ) {
+      workers =
+        await listWorkers({
+          service:
+            selectedService.key,
+        });
+    }
+
+    const rankedWorkers =
+      rankWorkers(
+        workers,
+        lat,
+        lng,
+        "smart"
+      );
+
+    let selectedWorker =
+      null;
 
     if (body.workerId) {
       selectedWorker =
         rankedWorkers.find(
           (worker) =>
-            worker.id === String(body.workerId)
-        ) || rankedWorkers[0];
+            worker.id ===
+            String(
+              body.workerId
+            )
+        ) ||
+        rankedWorkers[0] ||
+        null;
     } else {
-      selectedWorker = rankedWorkers[0];
+      selectedWorker =
+        rankedWorkers[0] ||
+        null;
     }
 
-    const normalPrice = selectedWorker
-      ? selectedWorker.pricePerHour
-      : service.base;
+    /**
+     * Worker नहीं मिले तो service base price।
+     */
+    const normalPrice =
+      selectedWorker
+        ? Number(
+            selectedWorker.pricePerHour
+          )
+        : Number(
+            selectedService.base
+          );
 
-    const finalPrice = isEmergency
-      ? Math.round(normalPrice * 1.25)
-      : normalPrice;
+    if (
+      !Number.isFinite(
+        normalPrice
+      ) ||
+      normalPrice <= 0
+    ) {
+      return Response.json(
+        {
+          error:
+            "Valid booking price could not be calculated.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
 
-    const order = await createRazorpayOrder({
-      // Razorpay amount paise mein leta hai.
-      amount: finalPrice * 100,
+    /**
+     * Future normal booking पर emergency
+     * surcharge नहीं लगेगा।
+     */
+    const finalPrice =
+      normalPrice;
 
-      receipt: `sevasetu_${Date.now()}`,
+    const order =
+      await createRazorpayOrder({
+        /**
+         * Razorpay amount paise में लेता है।
+         */
+        amount:
+          Math.round(
+            finalPrice * 100
+          ),
 
-      notes: {
-        customerId: String(session.user.id),
-        service: service.key,
-        isEmergency: String(isEmergency),
-      },
-    });
+        receipt:
+          `sevasetu_${Date.now()}`,
+
+        notes: {
+          customerId:
+            String(
+              session.user.id
+            ),
+
+          service:
+            selectedService.key,
+
+          isEmergency:
+            "false",
+
+          scheduledDate:
+            workDateKey,
+
+          paymentPlan:
+            "pay_now",
+        },
+      });
 
     return Response.json({
-      key: publicRazorpayKey(),
+      key:
+        publicRazorpayKey(),
+
       order,
     });
   } catch (error) {

@@ -5,158 +5,463 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { get, patch } from "@/lib/api";
-import { SERVICES, serviceIcon, serviceLabel } from "@/lib/services";
-import { useAuth } from "@/components/Providers";
-import { Avatar, Loader, Stars, StatusBadge, VerifiedBadge } from "@/components/ui";
 
-/** Shrink an image file into a small base64 data-url (fake "upload"). */
+import { get, patch } from "@/lib/api";
+import {
+  SERVICES,
+  serviceIcon,
+  serviceLabel,
+} from "@/lib/services";
+
+import { useAuth } from "@/components/Providers";
+
+import {
+  Avatar,
+  Loader,
+  Stars,
+  StatusBadge,
+  VerifiedBadge,
+} from "@/components/ui";
+
+/**
+ * Worker की profile image को छोटा base64 data URL बनाता है।
+ */
 function fileToSmallDataUrl(file, max = 256) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+
     reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const scale = Math.min(max / img.width, max / img.height, 1);
+      const image = new Image();
+
+      image.onload = () => {
+        const scale = Math.min(
+          max / image.width,
+          max / image.height,
+          1
+        );
+
         const canvas = document.createElement("canvas");
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        canvas.width = Math.round(image.width * scale);
+        canvas.height = Math.round(image.height * scale);
+
+        const context = canvas.getContext("2d");
+
+        context.drawImage(
+          image,
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
         resolve(canvas.toDataURL("image/jpeg", 0.7));
       };
-      img.onerror = reject;
-      img.src = reader.result;
+
+      image.onerror = reject;
+      image.src = reader.result;
     };
+
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
 }
 
+/**
+ * Date और time को India timezone में दिखाता है।
+ */
+function readableDateTime(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleString("hi-IN", {
+    timeZone: "Asia/Kolkata",
+  });
+}
+
+/**
+ * Worker के लिए customer का payment plan दिखाता है।
+ */
+function paymentPlanLabel(job) {
+  if (job.paymentStatus === "paid") {
+    return "Payment received";
+  }
+
+  if (job.paymentPlan === "after_1_day") {
+    return "काम के अगले दिन भुगतान";
+  }
+
+  if (job.paymentPlan === "after_2_days") {
+    return "काम के 2 दिन बाद भुगतान";
+  }
+
+  if (job.paymentPlan === "after_3_days") {
+    return "चुनी हुई तारीख को भुगतान";
+  }
+
+  return "काम पूरा होने के बाद भुगतान";
+}
+
+/**
+ * Worker dashboard।
+ */
 export default function WorkerDashboard() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
-  const { user, worker, loading: authLoading, refresh } = useAuth();
+
+  const {
+    user,
+    loading: authLoading,
+    refresh,
+  } = useAuth();
+
   const [profile, setProfile] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
 
+  /**
+   * Worker profile और bookings load करना।
+   */
   const load = useCallback(async () => {
     try {
-      const [me, list] = await Promise.all([get("/api/workers/me"), get("/api/bookings")]);
-      setProfile(me.worker);
-      setVideoUrl(me.worker?.videoUrl || "");
-      setJobs(list.bookings || []);
-    } catch (err) {
-      toast.error(err.message);
+      const [workerResponse, bookingResponse] = await Promise.all([
+        get("/api/workers/me"),
+        get("/api/bookings"),
+      ]);
+
+      setProfile(workerResponse.worker);
+
+      setVideoUrl(
+        workerResponse.worker?.videoUrl || ""
+      );
+
+      setJobs(bookingResponse.bookings || []);
+    } catch (error) {
+      toast.error(
+        error.message || "Worker dashboard load नहीं हुआ।"
+      );
     } finally {
       setLoading(false);
     }
   }, []);
 
+  /**
+   * केवल worker को dashboard खोलने दें।
+   */
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== "worker")) router.push("/login");
-    if (user?.role === "worker") load();
-  }, [authLoading, user, router, load]);
+  if (authLoading) {
+    return;
+  }
 
-  const update = async (payload, msg) => {
+  /*
+   * Logout के बाद user null होगा,
+   * इसलिए worker page से login पर भेजें।
+   */
+  if (
+    !user ||
+    user.role !== "worker"
+  ) {
+    router.replace("/login");
+    return;
+  }
+
+  load();
+}, [
+  authLoading,
+  user,
+  router,
+  load,
+]);
+
+  /**
+   * Worker profile update करना।
+   */
+  const update = async (payload, message) => {
     setSaving(true);
+
     try {
       const data = await patch("/api/workers/me", payload);
+
       setProfile(data.worker);
+
       await refresh();
-      if (msg) toast.success(msg);
-    } catch (err) {
-      toast.error(err.message);
+
+      if (message) {
+        toast.success(message);
+      }
+    } catch (error) {
+      toast.error(
+        error.message || "Profile update नहीं हुआ।"
+      );
     } finally {
       setSaving(false);
     }
   };
 
-  const onPhoto = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  /**
+   * Worker profile photo upload।
+   */
+  const onPhoto = async (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
     try {
       const dataUrl = await fileToSmallDataUrl(file);
-      await update({ photoUrl: dataUrl }, "Photo uploaded – sent for verification");
+
+      await update(
+        {
+          photoUrl: dataUrl,
+        },
+        "Photo uploaded – sent for verification"
+      );
     } catch {
       toast.error("Could not read that image");
     }
   };
 
+  /**
+   * Worker की current location update करना।
+   */
   const pushLocation = () => {
-    if (!navigator.geolocation) return toast.error("Geolocation not supported");
+    if (!navigator.geolocation) {
+      toast.error("Geolocation not supported");
+      return;
+    }
+
     navigator.geolocation.getCurrentPosition(
-      (pos) => update({ lat: pos.coords.latitude, lng: pos.coords.longitude }, "Location updated"),
+      (position) =>
+        update(
+          {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          },
+          "Location updated"
+        ),
+
       () => toast.error("Could not read location")
     );
   };
+  if (authLoading || loading) {
+  return <Loader />;
+}
 
-  if (authLoading || loading) return <Loader />;
-  if (!profile) return <p className="py-10 text-center text-gray-500">Worker profile missing.</p>;
+/*
+ * Logout और login redirect के बीच
+ * worker dashboard render नहीं होगा।
+ */
+if (
+  !user ||
+  user.role !== "worker"
+) {
+  return null;
+}
+
+if (!profile) {
+  return (
+    <p className="py-10 text-center text-gray-500">
+      Worker profile missing.
+    </p>
+  );
+}
+
+/*
+ * Safe worker name।
+ */
+const workerName =
+  user?.name ||
+  profile?.name ||
+  "Worker";
 
   const rating = profile.ratingCount
-    ? Math.round((profile.ratingSum / profile.ratingCount) * 10) / 10
+    ? Math.round(
+        (profile.ratingSum / profile.ratingCount) * 10
+      ) / 10
     : 0;
-  const earnings = jobs.filter((j) => j.status === "completed").reduce((s, j) => s + j.price, 0);
-  const activeJobs = jobs.filter((j) => ["assigned", "on_the_way"].includes(j.status));
+
+  /**
+   * Worker की paid earnings।
+   *
+   * Pending payment को earnings में नहीं जोड़ते।
+   */
+  const paidEarnings = jobs
+    .filter(
+      (job) =>
+        job.status === "completed" &&
+        job.paymentStatus === "paid"
+    )
+    .reduce(
+      (total, job) =>
+        total + Number(job.price || 0),
+      0
+    );
+
+  /**
+   * Customer से अभी मिलने वाला pending amount।
+   */
+  const pendingEarnings = jobs
+    .filter(
+      (job) =>
+        job.paymentStatus === "pending" &&
+        job.status !== "cancelled"
+    )
+    .reduce(
+      (total, job) =>
+        total + Number(job.price || 0),
+      0
+    );
+
+  const activeJobs = jobs.filter((job) =>
+    ["assigned", "on_the_way"].includes(job.status)
+  );
 
   return (
     <div className="space-y-6">
+      {/* Worker header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Avatar src={profile.photoUrl} name={user.name} size={52} />
+          <Avatar
+            src={profile.photoUrl}
+            name={workerName}
+            size={52}
+          />
+
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{user.name}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {workerName}
+            </h1>
+
             <p className="flex items-center gap-2 text-sm text-gray-600">
-              {serviceIcon(profile.service)} {serviceLabel(profile.service, i18n.language)}
-              <VerifiedBadge status={profile.verification} />
+              {serviceIcon(profile.service)}{" "}
+              {serviceLabel(
+                profile.service,
+                i18n.language
+              )}
+
+              <VerifiedBadge
+                status={profile.verification}
+              />
             </p>
           </div>
         </div>
 
         <button
-          onClick={() => update({ isOnline: !profile.isOnline }, profile.isOnline ? "You are offline" : "You are online")}
+          type="button"
+          onClick={() =>
+            update(
+              {
+                isOnline: !profile.isOnline,
+              },
+              profile.isOnline
+                ? "You are offline"
+                : "You are online"
+            )
+          }
           disabled={saving}
-          className={`btn ${profile.isOnline ? "btn-primary" : "btn-ghost"}`}
+          className={`btn ${
+            profile.isOnline
+              ? "btn-primary"
+              : "btn-ghost"
+          }`}
         >
-          {profile.isOnline ? `🟢 ${t("worker.online")}` : `⚪ ${t("worker.offline")}`}
+          {profile.isOnline
+            ? `🟢 ${t("worker.online")}`
+            : `⚪ ${t("worker.offline")}`}
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label={t("worker.jobs")} value={jobs.length} />
-        <Stat label="Completed" value={profile.jobsDone} />
-        <Stat label={t("worker.earnings")} value={`₹${earnings}`} />
-        <Stat label={t("worker.rating")} value={rating || "—"} />
+      {/* Worker statistics */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <Stat
+          label={t("worker.jobs")}
+          value={jobs.length}
+        />
+
+        <Stat
+          label="Active"
+          value={activeJobs.length}
+        />
+
+        <Stat
+          label="Completed"
+          value={profile.jobsDone || 0}
+        />
+
+        <Stat
+          label="Paid earnings"
+          value={`₹${paidEarnings}`}
+        />
+
+        <Stat
+          label="Payment pending"
+          value={`₹${pendingEarnings}`}
+        />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-        {/* Profile & verification */}
+        {/* Profile and verification */}
         <div className="card space-y-4 p-5">
-          <h2 className="font-bold text-gray-900">{t("worker.profile")}</h2>
+          <h2 className="font-bold text-gray-900">
+            {t("worker.profile")}
+          </h2>
 
           <div className="flex items-center gap-3">
-            <Avatar src={profile.photoUrl} name={user.name} size={60} />
+            <Avatar
+              src={profile.photoUrl}
+              name={workerName}
+              size={60}
+            />
+
             <label className="btn btn-ghost cursor-pointer">
               📷 {t("worker.upload")}
-              <input type="file" accept="image/*" className="hidden" onChange={onPhoto} />
+
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={onPhoto}
+              />
             </label>
           </div>
 
+          {/* Skill video */}
           <div>
-            <label className="label">{t("worker.video")}</label>
+            <label className="label">
+              {t("worker.video")}
+            </label>
+
             <div className="flex gap-2">
               <input
                 className="input"
                 placeholder="https://youtube.com/..."
                 value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
+                onChange={(event) =>
+                  setVideoUrl(event.target.value)
+                }
               />
+
               <button
+                type="button"
                 className="btn btn-primary"
-                onClick={() => update({ videoUrl }, "Skill video submitted")}
+                onClick={() =>
+                  update(
+                    {
+                      videoUrl,
+                    },
+                    "Skill video submitted"
+                  )
+                }
                 disabled={saving}
               >
                 {t("app.save")}
@@ -164,43 +469,87 @@ export default function WorkerDashboard() {
             </div>
           </div>
 
+          {/* Service and price */}
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="label">{t("auth.service")}</label>
+              <label className="label">
+                {t("auth.service")}
+              </label>
+
               <select
                 className="input"
                 value={profile.service}
-                onChange={(e) => update({ service: e.target.value }, "Service updated")}
+                onChange={(event) =>
+                  update(
+                    {
+                      service: event.target.value,
+                    },
+                    "Service updated"
+                  )
+                }
               >
-                {SERVICES.map((s) => (
-                  <option key={s.key} value={s.key}>
-                    {s.icon} {serviceLabel(s.key, i18n.language)}
+                {SERVICES.map((service) => (
+                  <option
+                    key={service.key}
+                    value={service.key}
+                  >
+                    {service.icon}{" "}
+                    {serviceLabel(
+                      service.key,
+                      i18n.language
+                    )}
                   </option>
                 ))}
               </select>
             </div>
+
             <div>
-              <label className="label">{t("auth.price")}</label>
+              <label className="label">
+                {t("auth.price")}
+              </label>
+
               <input
                 className="input"
                 type="number"
+                min="0"
                 defaultValue={profile.pricePerHour}
-                onBlur={(e) => update({ pricePerHour: e.target.value }, "Price updated")}
+                onBlur={(event) =>
+                  update(
+                    {
+                      pricePerHour: event.target.value,
+                    },
+                    "Price updated"
+                  )
+                }
               />
             </div>
           </div>
 
+          {/* Worker bio */}
           <div>
             <label className="label">Bio</label>
+
             <textarea
               className="input"
               rows={2}
               defaultValue={profile.bio}
-              onBlur={(e) => update({ bio: e.target.value }, "Bio updated")}
+              onBlur={(event) =>
+                update(
+                  {
+                    bio: event.target.value,
+                  },
+                  "Bio updated"
+                )
+              }
             />
           </div>
 
-          <button className="btn btn-ghost w-full" onClick={pushLocation}>
+          <button
+            type="button"
+            className="btn btn-ghost w-full"
+            onClick={pushLocation}
+            disabled={saving}
+          >
             📍 Update my base location
           </button>
 
@@ -210,43 +559,96 @@ export default function WorkerDashboard() {
               {profile.verification === "approved"
                 ? t("worker.verified")
                 : profile.verification === "rejected"
-                ? t("worker.rejected")
-                : t("worker.pending")}
+                  ? t("worker.rejected")
+                  : t("worker.pending")}
             </span>
-            . Only verified workers appear in customer search and auto-assignment.
+            . Only verified workers appear in customer
+            search and auto-assignment.
           </p>
         </div>
 
-        {/* Jobs */}
+        {/* Worker jobs */}
         <div className="space-y-3">
-          <h2 className="font-bold text-gray-900">{t("worker.jobs")}</h2>
+          <h2 className="font-bold text-gray-900">
+            {t("worker.jobs")}
+          </h2>
+
           {activeJobs.length > 0 && (
             <div className="card border-teal-200 bg-teal-50/40 p-4 text-sm">
               <p className="font-semibold text-teal-800">
-                {activeJobs.length} active job(s) – open one to share live location.
+                {activeJobs.length} active job(s) – open
+                one to share live location.
               </p>
             </div>
           )}
-          {jobs.map((j) => (
-            <div key={j.id} className="card flex flex-wrap items-center justify-between gap-3 p-4">
-              <div>
+
+          {jobs.map((job) => (
+            <div
+              key={job.id}
+              className="card flex flex-wrap items-center justify-between gap-3 p-4"
+            >
+              <div className="min-w-0 flex-1">
                 <p className="font-semibold text-gray-900">
-                  {serviceIcon(j.service)} #{j.id} · {j.customerName}
+                  {serviceIcon(job.service)} #{job.id} ·{" "}
+                  {job.customerName}
                 </p>
-                <p className="text-xs text-gray-600">
-                  {new Date(j.scheduledAt).toLocaleString()} · ₹{j.price}
-                  {j.isEmergency && <span className="ml-2 font-semibold text-rose-600">🚨</span>}
+
+                <p className="mt-1 text-xs text-gray-600">
+                  {readableDateTime(job.scheduledAt)} · ₹
+                  {job.price}
+
+                  {job.isEmergency && (
+                    <span className="ml-2 font-semibold text-rose-600">
+                      🚨 Emergency
+                    </span>
+                  )}
                 </p>
-                {j.ratingStars ? <Stars value={j.ratingStars} /> : null}
+
+                {/* Payment information */}
+                <div
+                  className={`mt-2 rounded-xl px-3 py-2 text-xs ${
+                    job.paymentStatus === "paid"
+                      ? "bg-emerald-50 text-emerald-800"
+                      : "bg-amber-50 text-amber-800"
+                  }`}
+                >
+                  <p className="font-semibold">
+                    {job.paymentStatus === "paid"
+                      ? "✅ Payment received"
+                      : `🕒 ${paymentPlanLabel(job)}`}
+                  </p>
+
+                  {job.paymentStatus !== "paid" &&
+                    job.paymentDueAt && (
+                      <p className="mt-1">
+                        Payment due:{" "}
+                        {readableDateTime(
+                          job.paymentDueAt
+                        )}
+                      </p>
+                    )}
+                </div>
+
+                {job.ratingStars ? (
+                  <div className="mt-2">
+                    <Stars value={job.ratingStars} />
+                  </div>
+                ) : null}
               </div>
+
               <div className="flex items-center gap-2">
-                <StatusBadge status={j.status} />
-                <Link href={`/track/${j.id}`} className="btn btn-primary !py-1.5">
+                <StatusBadge status={job.status} />
+
+                <Link
+                  href={`/track/${job.id}`}
+                  className="btn btn-primary !py-1.5"
+                >
                   Open
                 </Link>
               </div>
             </div>
           ))}
+
           {!jobs.length && (
             <p className="py-8 text-center text-sm text-gray-500">
               No jobs yet. Stay online to get assigned!
@@ -258,11 +660,19 @@ export default function WorkerDashboard() {
   );
 }
 
+/**
+ * Dashboard statistics card।
+ */
 function Stat({ label, value }) {
   return (
     <div className="card p-4">
-      <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="text-2xl font-extrabold text-gray-900">{value}</p>
+      <p className="text-xs uppercase tracking-wide text-gray-500">
+        {label}
+      </p>
+
+      <p className="text-2xl font-extrabold text-gray-900">
+        {value}
+      </p>
     </div>
   );
 }
