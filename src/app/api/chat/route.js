@@ -2,16 +2,11 @@ import {
   SERVICES as SERVICE_CATALOG,
 } from "@/lib/services";
 
-export const dynamic =
-  "force-dynamic";
+export const dynamic = "force-dynamic";
 
-/**
- * Service objects से valid service keys।
- */
-const SERVICE_KEYS =
-  SERVICE_CATALOG.map(
-    (service) => service.key
-  );
+const SERVICE_KEYS = SERVICE_CATALOG.map(
+  (service) => service.key
+);
 
 /**
  * Gemini response से JSON निकालना।
@@ -31,11 +26,8 @@ function extractJson(text) {
   try {
     return JSON.parse(cleaned);
   } catch {
-    const firstBrace =
-      cleaned.indexOf("{");
-
-    const lastBrace =
-      cleaned.lastIndexOf("}");
+    const firstBrace = cleaned.indexOf("{");
+    const lastBrace = cleaned.lastIndexOf("}");
 
     if (
       firstBrace === -1 ||
@@ -61,17 +53,11 @@ function extractJson(text) {
 /**
  * India की date YYYY-MM-DD में।
  */
-function indiaDateKey(
-  value = new Date()
-) {
-  return new Date(
-    value
-  ).toLocaleDateString(
+function indiaDateKey(value = new Date()) {
+  return new Date(value).toLocaleDateString(
     "en-CA",
     {
-      timeZone:
-        "Asia/Kolkata",
-
+      timeZone: "Asia/Kolkata",
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -82,16 +68,11 @@ function indiaDateKey(
 /**
  * datetime-local value से YYYY-MM-DD।
  */
-function selectedDateKey(
-  value
-) {
-  const text =
-    String(value || "");
+function selectedDateKey(value) {
+  const text = String(value || "");
 
   if (
-    /^\d{4}-\d{2}-\d{2}/.test(
-      text
-    )
+    /^\d{4}-\d{2}-\d{2}/.test(text)
   ) {
     return text.slice(0, 10);
   }
@@ -100,16 +81,65 @@ function selectedDateKey(
 }
 
 /**
+ * Retry से पहले wait करना।
+ */
+function sleep(milliseconds) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
+
+/**
+ * Gemini 429 या 503 दे तो automatic retry।
+ */
+async function fetchGeminiWithRetry(
+  apiUrl,
+  requestOptions,
+  maximumAttempts = 3
+) {
+  let lastResponse = null;
+
+  for (
+    let attempt = 1;
+    attempt <= maximumAttempts;
+    attempt += 1
+  ) {
+    const response = await fetch(
+      apiUrl,
+      requestOptions
+    );
+
+    lastResponse = response;
+
+    if (
+      response.ok ||
+      ![429, 503].includes(response.status)
+    ) {
+      return response;
+    }
+
+    if (attempt === maximumAttempts) {
+      return response;
+    }
+
+    const waitTime = attempt * 1000;
+
+    console.warn(
+      `Gemini busy है। ${waitTime}ms बाद retry होगा।`
+    );
+
+    await sleep(waitTime);
+  }
+
+  return lastResponse;
+}
+
+/**
  * Gemini chat API।
  */
-export async function POST(
-  request
-) {
+export async function POST(request) {
   try {
-    if (
-      !process.env
-        .GEMINI_API_KEY
-    ) {
+    if (!process.env.GEMINI_API_KEY) {
       return Response.json(
         {
           error:
@@ -121,28 +151,22 @@ export async function POST(
       );
     }
 
-    const body =
-      await request.json();
+    const body = await request.json();
 
-    const messages =
-      Array.isArray(
-        body.messages
-      )
-        ? body.messages.slice(
-            -12
-          )
-        : [];
+    const messages = Array.isArray(
+      body.messages
+    )
+      ? body.messages.slice(-12)
+      : [];
 
-    const language =
-      String(
-        body.language || "en"
-      ).slice(0, 20);
+    const language = String(
+      body.language || "en"
+    ).slice(0, 20);
 
     if (!messages.length) {
       return Response.json(
         {
-          error:
-            "Please enter a message.",
+          error: "Please enter a message.",
         },
         {
           status: 400,
@@ -154,20 +178,14 @@ export async function POST(
       new Date().toLocaleString(
         "en-IN",
         {
-          timeZone:
-            "Asia/Kolkata",
-
+          timeZone: "Asia/Kolkata",
           dateStyle: "full",
           timeStyle: "long",
         }
       );
 
-    const todayDate =
-      indiaDateKey();
+    const todayDate = indiaDateKey();
 
-    /**
-     * Final Gemini instructions।
-     */
     const systemPrompt = `
 You are SevaSetu Gemini Assistant for an Indian cooperative household-service platform.
 
@@ -185,23 +203,20 @@ YOUR RESPONSIBILITIES
 1. NORMAL CHAT
 
 Answer questions about:
-
 - SevaSetu services
 - workers
 - booking
-- payment
-- emergency bookings
+- payments
+- emergency booking
 - emergency surcharge
-- mobile OTP
 - live tracking
-- cooperative services
+- cooperative household services
 
 2. BOOKING COMMAND
 
 Understand booking commands in Hindi, Hinglish, English and other Indian languages.
 
 Examples:
-
 - "Aaj plumber book karo."
 - "Aaj electrician chahiye, payment kaam ke baad hoga."
 - "Kal subah 9 baje plumber book karo."
@@ -215,9 +230,9 @@ ${SERVICE_KEYS.join(", ")}
 
 BOOKING DATE RULES
 
-- Convert relative dates such as today, tomorrow, next Monday, next Friday and similar phrases into YYYY-MM-DDTHH:mm.
+- Convert relative dates such as today, tomorrow, next Monday and next Friday into YYYY-MM-DDTHH:mm.
 - Use the current India date and time shown above.
-- scheduledAt is the service/work date and time.
+- scheduledAt is the service or work date and time.
 - Never return a past date.
 - If the user does not provide a time, choose a reasonable daytime time such as 10:00.
 - Do not invent an address.
@@ -232,32 +247,31 @@ There are only two payment plans:
 Use this only when the selected work date is today in India.
 
 Meaning:
-- The customer books today.
-- The worker completes the work today.
-- Customer pays after the work is completed.
-- Razorpay payment is not required while creating today's booking.
+- Customer books the service for today.
+- Customer pays after the worker completes the work.
+- Online payment is not required while creating today's booking.
 
 2. pay_now
 
 Use this for every future-date booking.
 
 Meaning:
-- If work date is tomorrow, next week or any later date, online payment is required while confirming the booking.
+- If the work date is tomorrow, next week or any later date, online payment is required while confirming the booking.
 - The application will open Razorpay before creating the future booking.
 
-IMPORTANT PAYMENT BEHAVIOUR
+IMPORTANT PAYMENT RULES
 
 - Payment plan depends only on the selected work date.
-- For today's work date, paymentPlan must be after_work.
-- For tomorrow or any future work date, paymentPlan must be pay_now.
-- Do not offer one-day-later payment.
-- Do not offer two-days-later payment.
-- Do not offer three-days-later payment.
+- Today's work date must use after_work.
+- Tomorrow or any future work date must use pay_now.
+- Do not offer payment one day after work.
+- Do not offer payment two days after work.
+- Do not offer payment three days after work.
 - Do not offer a custom payment date.
 - Do not return after_1_day.
 - Do not return after_2_days.
 - Do not return after_3_days.
-- Even if the user asks to pay later for a future booking, explain that future bookings require online payment while booking.
+- If the user asks to pay later for a future booking, explain that future bookings require online payment while booking.
 
 EMERGENCY RULES
 
@@ -268,19 +282,18 @@ EMERGENCY RULES
   - bookingDraft must be null.
   - Explain that emergency booking is available only for today.
   - Offer a normal future booking instead.
-- Normal future bookings are allowed, but they require online payment while booking.
+- Normal future bookings are allowed, but require online payment while booking.
+- Today's emergency booking includes a 25 percent emergency charge.
 
 SECURITY RULES
 
-- Never ask the user to share an OTP in chat.
 - Never ask for card number.
 - Never ask for CVV.
 - Never ask for password.
 - Never ask for an API key.
-- Never claim that OTP verification succeeded.
 - Never claim that payment succeeded.
 - Never claim that booking succeeded.
-- The application handles confirmation, OTP and Razorpay.
+- The application handles final confirmation and Razorpay.
 - Reply concisely in the user's selected language.
 
 Return ONLY valid JSON.
@@ -310,109 +323,113 @@ For a valid booking request:
     /**
      * Messages को Gemini format में बदलना।
      */
-    const contents =
-      messages
-        .filter(
-          (message) =>
-            message &&
-            message.text
-        )
-        .map(
-          (message) => ({
-            role:
-              message.role ===
-              "assistant"
-                ? "model"
-                : "user",
+    const contents = messages
+      .filter(
+        (message) =>
+          message &&
+          message.text
+      )
+      .map((message) => ({
+        role:
+          message.role === "assistant"
+            ? "model"
+            : "user",
 
-            parts: [
-              {
-                text:
-                  String(
-                    message.text
-                  ).slice(
-                    0,
-                    2000
-                  ),
-              },
-            ],
-          })
-        );
+        parts: [
+          {
+            text: String(
+              message.text
+            ).slice(0, 2000),
+          },
+        ],
+      }));
 
     const model =
-      process.env
-        .GEMINI_MODEL ||
+      process.env.GEMINI_MODEL ||
       "gemini-2.5-flash";
 
     const apiUrl =
       "https://generativelanguage.googleapis.com/" +
       "v1beta/models/" +
-      encodeURIComponent(
-        model
-      ) +
+      encodeURIComponent(model) +
       ":generateContent";
 
+    const requestOptions = {
+      method: "POST",
+
+      headers: {
+        "Content-Type":
+          "application/json",
+
+        "x-goog-api-key":
+          process.env.GEMINI_API_KEY,
+      },
+
+      body: JSON.stringify({
+        system_instruction: {
+          parts: [
+            {
+              text: systemPrompt,
+            },
+          ],
+        },
+
+        contents,
+
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 800,
+
+          responseMimeType:
+            "application/json",
+        },
+      }),
+
+      cache: "no-store",
+    };
+
     const geminiResponse =
-      await fetch(
+      await fetchGeminiWithRetry(
         apiUrl,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            "x-goog-api-key":
-              process.env
-                .GEMINI_API_KEY,
-          },
-
-          body:
-            JSON.stringify({
-              system_instruction:
-                {
-                  parts: [
-                    {
-                      text:
-                        systemPrompt,
-                    },
-                  ],
-                },
-
-              contents,
-
-              generationConfig:
-                {
-                  temperature: 0.2,
-
-                  maxOutputTokens:
-                    800,
-
-                  responseMimeType:
-                    "application/json",
-                },
-            }),
-
-          cache: "no-store",
-        }
+        requestOptions,
+        3
       );
 
-    const geminiData =
-      await geminiResponse.json();
+    let geminiData = {};
 
-    if (
-      !geminiResponse.ok
-    ) {
+    try {
+      geminiData =
+        await geminiResponse.json();
+    } catch {
+      geminiData = {};
+    }
+
+    if (!geminiResponse.ok) {
       console.error(
         "Gemini API error:",
         geminiData
       );
 
+      if (
+        [429, 503].includes(
+          geminiResponse.status
+        )
+      ) {
+        return Response.json(
+          {
+            error:
+              "Gemini abhi busy hai. Kuch seconds baad dobara try karein.",
+          },
+          {
+            status: 503,
+          }
+        );
+      }
+
       return Response.json(
         {
           error:
-            geminiData?.error
-              ?.message ||
+            geminiData?.error?.message ||
             "AI assistant is temporarily unavailable.",
         },
         {
@@ -432,9 +449,7 @@ For a valid booking request:
         .trim();
 
     const parsedResponse =
-      extractJson(
-        responseText
-      );
+      extractJson(responseText);
 
     if (!parsedResponse) {
       return Response.json({
@@ -452,7 +467,7 @@ For a valid booking request:
       parsedResponse.bookingDraft;
 
     /**
-     * Gemini draft validation।
+     * Gemini booking draft validation।
      */
     if (
       rawDraft &&
@@ -460,11 +475,9 @@ For a valid booking request:
         rawDraft.service
       )
     ) {
-      const scheduledAt =
-        String(
-          rawDraft.scheduledAt ||
-            ""
-        ).slice(0, 16);
+      const scheduledAt = String(
+        rawDraft.scheduledAt || ""
+      ).slice(0, 16);
 
       const workDateKey =
         selectedDateKey(
@@ -472,12 +485,8 @@ For a valid booking request:
         );
 
       const isEmergency =
-        rawDraft.isEmergency ===
-        true;
+        rawDraft.isEmergency === true;
 
-      /**
-       * Invalid date होने पर draft न बनाएं।
-       */
       if (!workDateKey) {
         return Response.json({
           reply:
@@ -490,10 +499,7 @@ For a valid booking request:
       /**
        * Past booking रोकें।
        */
-      if (
-        workDateKey <
-        todayDate
-      ) {
+      if (workDateKey < todayDate) {
         return Response.json({
           reply:
             "Past date ki booking nahi ho sakti. Aaj ya future date select karein.",
@@ -503,11 +509,10 @@ For a valid booking request:
       }
 
       const bookingIsToday =
-        workDateKey ===
-        todayDate;
+        workDateKey === todayDate;
 
       /**
-       * Future emergency draft को रोकें।
+       * Future emergency booking रोकें।
        */
       if (
         isEmergency &&
@@ -522,7 +527,7 @@ For a valid booking request:
       }
 
       /**
-       * Gemini के दिए paymentPlan पर भरोसा नहीं।
+       * Gemini के paymentPlan पर भरोसा नहीं।
        * Date के आधार पर server plan तय करेगा।
        */
       const paymentPlan =
@@ -536,17 +541,13 @@ For a valid booking request:
 
         scheduledAt,
 
-        address:
-          String(
-            rawDraft.address ||
-              ""
-          ).slice(0, 300),
+        address: String(
+          rawDraft.address || ""
+        ).slice(0, 300),
 
-        notes:
-          String(
-            rawDraft.notes ||
-              ""
-          ).slice(0, 1000),
+        notes: String(
+          rawDraft.notes || ""
+        ).slice(0, 1000),
 
         paymentPlan,
 
@@ -554,33 +555,31 @@ For a valid booking request:
       };
     }
 
-    let reply =
-      String(
-        parsedResponse.reply ||
-          "Request understood."
-      ).slice(0, 1500);
+    let reply = String(
+      parsedResponse.reply ||
+        "Request understood."
+    ).slice(0, 1500);
 
     /**
-     * Gemini के reply में payment information
-     * साफ तरीके से जोड़ें।
+     * Payment rule reply में साफ दिखाएं।
      */
     if (bookingDraft) {
       if (
         bookingDraft.paymentPlan ===
         "after_work"
       ) {
-        reply =
-          `${reply}\n\nPayment: Aaj kaam complete hone ke baad payment hoga.`;
+        reply +=
+          "\n\nPayment: Aaj kaam complete hone ke baad payment hoga.";
       } else {
-        reply =
-          `${reply}\n\nPayment: Future booking confirm karne ke liye booking ke saath online payment hoga.`;
+        reply +=
+          "\n\nPayment: Future booking confirm karne ke liye booking ke saath online payment hoga.";
       }
 
       if (
         bookingDraft.isEmergency
       ) {
-        reply =
-          `${reply}\nEmergency: Aaj ki emergency booking par 25% emergency charge lagega.`;
+        reply +=
+          "\nEmergency: Aaj ki emergency booking par 25% emergency charge lagega.";
       }
     }
 

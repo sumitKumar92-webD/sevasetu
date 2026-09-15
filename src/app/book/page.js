@@ -36,7 +36,6 @@ import {
   useAuth,
 } from "@/components/Providers";
 
-import MobileOtpVerification from "@/components/MobileOtpVerification";
 
 import {
   Loader,
@@ -301,15 +300,7 @@ function BookingForm() {
     setSubmitting,
   ] = useState(false);
 
-  const [
-    phone,
-    setPhone,
-  ] = useState("");
-
-  const [
-    otpVerificationToken,
-    setOtpVerificationToken,
-  ] = useState("");
+  
 
   /**
    * Selected booking date।
@@ -354,13 +345,7 @@ function BookingForm() {
   /**
    * Logged-in customer का phone।
    */
-  useEffect(() => {
-    if (user?.phone) {
-      setPhone(
-        user.phone
-      );
-    }
-  }, [user]);
+  
 
   /**
    * Gemini booking draft load करना।
@@ -626,21 +611,7 @@ function BookingForm() {
         return;
       }
 
-      if (
-        !otpVerificationToken
-      ) {
-        toast.error(
-          t(
-            "voice.verifyBeforeBooking",
-            {
-              defaultValue:
-                "Booking se pehle mobile OTP verify karein.",
-            }
-          )
-        );
-
-        return;
-      }
+      
 
       const wantsEmergency =
         emergency ||
@@ -661,26 +632,21 @@ function BookingForm() {
 
       try {
         const payload = {
-          ...form,
+  ...form,
 
-          /**
-           * Frontend date से plan calculate करता है।
-           * Backend भी दोबारा यही validation करेगा।
-           */
-          paymentPlan,
+  paymentPlan,
 
-          isEmergency:
-            wantsEmergency,
+  isEmergency:
+    wantsEmergency,
 
-          workerId:
-            form.workerId ||
-            null,
+  workerId:
+    form.workerId ||
+    null,
 
-          lat: coords.lat,
-          lng: coords.lng,
-
-          otpVerificationToken,
-        };
+  lat: coords.lat,
+  lng: coords.lng,
+};
+         
 
         /**
          * आज की booking:
@@ -709,9 +675,7 @@ function BookingForm() {
                 )
           );
 
-          setOtpVerificationToken(
-            ""
-          );
+          
 
           router.push(
             `/track/${data.booking.id}`
@@ -789,9 +753,7 @@ function BookingForm() {
                 "",
 
               contact:
-                phone ||
-                user.phone ||
-                "",
+         user?.phone || "",
             },
 
             notes: {
@@ -858,9 +820,6 @@ function BookingForm() {
                         )
                   );
 
-                  setOtpVerificationToken(
-                    ""
-                  );
 
                   router.push(
                     `/track/${data.booking.id}`
@@ -968,16 +927,7 @@ function BookingForm() {
           )}
         </h1>
 
-        {/* Mobile OTP */}
-        <MobileOtpVerification
-          phone={phone}
-          setPhone={
-            setPhone
-          }
-          onVerified={
-            setOtpVerificationToken
-          }
-        />
+        
 
         {/* Service */}
         <div>
@@ -1297,11 +1247,10 @@ function BookingForm() {
           <button
             type="submit"
             className="btn btn-primary flex-1"
-            disabled={
-              submitting ||
-              !otpVerificationToken ||
-              bookingIsPast
-            }
+           disabled={
+  submitting ||
+  bookingIsPast
+}
           >
             {submitting
               ? bookingIsToday
@@ -1316,10 +1265,9 @@ function BookingForm() {
             type="button"
             className="btn btn-danger"
             disabled={
-              submitting ||
-              !otpVerificationToken ||
-              !emergencyAvailable
-            }
+  submitting ||
+  !emergencyAvailable
+}
             title={
               emergencyAvailable
                 ? "आज की emergency booking"
@@ -1343,11 +1291,7 @@ function BookingForm() {
           </p>
         )}
 
-        {!otpVerificationToken && (
-          <p className="text-center text-xs font-medium text-amber-700">
-            🔐 Booking से पहले mobile OTP verify करें।
-          </p>
-        )}
+      
 
         {bookingIsPast && (
           <p className="text-center text-xs font-medium text-red-700">
