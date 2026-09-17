@@ -14,6 +14,7 @@ import {
 import { listWorkers } from "@/lib/workers";
 import { rankWorkers } from "@/lib/geo";
 import { SERVICES } from "@/lib/services";
+import { normalizeLocation, recordDemand } from "@/lib/demand";
 
 import {
   getRazorpayOrder,
@@ -451,6 +452,11 @@ export async function POST(request) {
           body.address || ""
         ).trim(),
 
+      location:
+        normalizeLocation(
+          body.location || body.city || body.address
+        ),
+
       notes:
         String(
           body.notes || ""
@@ -525,6 +531,17 @@ export async function POST(request) {
       await Booking.create(
         bookingData
       );
+
+    // Forecast logging must never make an already-created booking fail.
+    try {
+      await recordDemand({
+        serviceType: service,
+        location: bookingData.location,
+        scheduledAt: validScheduledAt,
+      });
+    } catch (demandError) {
+      console.error("Demand counter update failed:", demandError);
+    }
 
     const booking =
       await getBookingById(

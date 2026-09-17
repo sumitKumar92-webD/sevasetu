@@ -18,6 +18,20 @@ const workerSchema = new mongoose.Schema(
       default: "pending",
       index: true,
     },
+    // Kept in sync with verification for simple API/UI checks.
+    isVerified: { type: Boolean, default: false, index: true },
+    insuranceStatus: {
+      type: String,
+      enum: ["active", "inactive"],
+      default: "inactive",
+    },
+    emergencyContact: { type: String, default: "" },
+    safetyStatus: {
+      type: String,
+      enum: ["safe", "on-job", "completed", "emergency"],
+      default: "safe",
+      index: true,
+    },
     photoUrl: { type: String, default: "" },
     videoUrl: { type: String, default: "" },
     adminNote: { type: String, default: "" },

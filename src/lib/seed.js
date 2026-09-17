@@ -6,6 +6,7 @@ import {
 
 import User from "@/db/models/User";
 import Worker from "@/db/models/Worker";
+import DemandData from "@/db/models/DemandData";
 
 import {
   SERVICES,
@@ -430,6 +431,10 @@ async function seedDatabase() {
         isOnline,
 
         verification,
+        isVerified: verification === "approved",
+        insuranceStatus: verification === "approved" && index % 3 !== 0 ? "active" : "inactive",
+        emergencyContact: `97000000${10 + index}`,
+        safetyStatus: "safe",
 
         photoUrl: "",
 
@@ -451,6 +456,23 @@ async function seedDatabase() {
           ratingCount,
       },
     });
+  }
+
+  // Demo aggregates make the forecasting UI useful before real bookings arrive.
+  const demandSamples = [
+    ["plumber", "delhi", 24],
+    ["electrician", "delhi", 18],
+    ["cleaner", "delhi", 12],
+    ["carpenter", "delhi", 8],
+  ];
+  const now = new Date();
+  const shifted = new Date(now.getTime() + 330 * 60 * 1000);
+  for (const [serviceType, location, bookingsCount] of demandSamples) {
+    await DemandData.findOneAndUpdate(
+      { serviceType, location, dayOfWeek: shifted.getUTCDay(), hour: shifted.getUTCHours() },
+      { $setOnInsert: { bookingsCount, lastBookingAt: now } },
+      { upsert: true, setDefaultsOnInsert: true }
+    );
   }
 
   console.log(

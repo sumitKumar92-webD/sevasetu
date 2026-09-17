@@ -12,8 +12,15 @@ import { Avatar, Loader, Stars, VerifiedBadge } from "@/components/ui";
 export default function WorkersPage() {
   const { t, i18n } = useTranslation();
   const { coords, locate, locating } = useGeo(true);
-  const [filters, setFilters] = useState({ service: "", sort: "smart", q: "", onlineOnly: false });
+  const [filters, setFilters] = useState({
+    service: "",
+    sort: "smart",
+    q: "",
+    location: "delhi",
+    onlineOnly: false,
+  });
   const [workers, setWorkers] = useState([]);
+  const [forecast, setForecast] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -27,8 +34,18 @@ export default function WorkersPage() {
       lng: String(coords.lng),
     });
     try {
-      const data = await get(`/api/workers?${params.toString()}`);
+      const recommendationParams = new URLSearchParams({
+        service: filters.service,
+        location: filters.location,
+        lat: String(coords.lat),
+        lng: String(coords.lng),
+      });
+      const [data, recommendation] = await Promise.all([
+        get(`/api/workers?${params.toString()}`),
+        get(`/api/ai/recommend-workers?${recommendationParams.toString()}`),
+      ]);
       setWorkers(data.workers || []);
+      setForecast(recommendation);
     } finally {
       setLoading(false);
     }
@@ -56,13 +73,18 @@ export default function WorkersPage() {
           <p className="text-sm text-gray-600">
             {workers.length} pros near you · {coords.lat.toFixed(3)}, {coords.lng.toFixed(3)}
           </p>
+          {forecast?.demand?.highDemandArea && (
+            <span className="mt-2 inline-flex rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700">
+              🔥 High Demand Area · {forecast.requestedService}
+            </span>
+          )}
         </div>
         <button className="btn btn-ghost" onClick={locate} disabled={locating}>
           📍 {locating ? t("app.loading") : t("booking.useLocation")}
         </button>
       </div>
 
-      <div className="card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
         <div>
           <label className="label">{t("app.search")}</label>
           <input
@@ -86,6 +108,15 @@ export default function WorkersPage() {
               </option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className="label">Location</label>
+          <input
+            className="input"
+            placeholder="Delhi"
+            value={filters.location}
+            onChange={(e) => setFilters({ ...filters, location: e.target.value })}
+          />
         </div>
         <div>
           <label className="label">Sort by</label>
@@ -139,6 +170,11 @@ export default function WorkersPage() {
                   </div>
                 </div>
               </div>
+              {forecast?.recommendedWorker?.id === w.id && (
+                <span className="inline-flex rounded-full bg-violet-100 px-3 py-1 text-xs font-bold text-violet-700">
+                  ⭐ Recommended Worker
+                </span>
+              )}
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">📍 {w.distance} km {t("worker.distance")}</span>
                 <span className="font-semibold text-teal-700">₹{w.pricePerHour}/hr</span>

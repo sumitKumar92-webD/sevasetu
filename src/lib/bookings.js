@@ -55,6 +55,9 @@ export function shapeBooking(
     address:
       booking.address || "",
 
+    location:
+      booking.location || "",
+
     notes:
       booking.notes || "",
 
@@ -97,10 +100,6 @@ export function shapeBooking(
     paymentStatus:
       booking.paymentStatus ||
       "pending",
-
-    paymentMethod:
-      booking.paymentMethod ||
-      null,
 
     paymentProvider:
       booking.paymentProvider ||

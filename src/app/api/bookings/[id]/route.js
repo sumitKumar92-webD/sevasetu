@@ -85,8 +85,17 @@ export async function PATCH(request, context) {
 
   if (body.status && ALLOWED.includes(body.status)) {
     patch.status = body.status;
+    if (raw.workerId && body.status === "on_the_way") {
+      await Worker.updateOne({ _id: raw.workerId }, { safetyStatus: "on-job" });
+    }
     if (body.status === "completed" && raw.workerId) {
-      await Worker.updateOne({ _id: raw.workerId }, { $inc: { jobsDone: 1 } });
+      await Worker.updateOne(
+        { _id: raw.workerId },
+        { $inc: { jobsDone: 1 }, $set: { safetyStatus: "completed" } }
+      );
+    }
+    if (raw.workerId && body.status === "cancelled") {
+      await Worker.updateOne({ _id: raw.workerId }, { safetyStatus: "safe" });
     }
   }
 

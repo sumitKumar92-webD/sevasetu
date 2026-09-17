@@ -28,6 +28,9 @@ export async function PATCH(request) {
   if (typeof body.isOnline === "boolean") patch.isOnline = body.isOnline;
   if (typeof body.bio === "string") patch.bio = body.bio;
   if (typeof body.city === "string") patch.city = body.city;
+  if (typeof body.emergencyContact === "string") {
+    patch.emergencyContact = body.emergencyContact.replace(/[^0-9+ -]/g, "").slice(0, 20);
+  }
   if (body.service && SERVICES.some((s) => s.key === body.service)) patch.service = body.service;
   if (body.pricePerHour !== undefined) patch.pricePerHour = Number(body.pricePerHour) || 300;
   if (body.experienceYears !== undefined) patch.experienceYears = Number(body.experienceYears) || 0;
@@ -39,10 +42,12 @@ export async function PATCH(request) {
   if (typeof body.photoUrl === "string") {
     patch.photoUrl = body.photoUrl;
     patch.verification = "pending";
+    patch.isVerified = false;
   }
   if (typeof body.videoUrl === "string") {
     patch.videoUrl = body.videoUrl;
     patch.verification = "pending";
+    patch.isVerified = false;
   }
 
   if (!Object.keys(patch).length) {

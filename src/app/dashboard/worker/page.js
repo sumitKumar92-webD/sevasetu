@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 
-import { get, patch } from "@/lib/api";
+import { get, patch, post } from "@/lib/api";
 import {
   SERVICES,
   serviceIcon,
@@ -127,15 +127,18 @@ export default function WorkerDashboard() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
+  const [welfare, setWelfare] = useState(null);
+  const [alerting, setAlerting] = useState(false);
 
   /**
    * Worker profile और bookings load करना।
    */
   const load = useCallback(async () => {
     try {
-      const [workerResponse, bookingResponse] = await Promise.all([
+      const [workerResponse, bookingResponse, welfareResponse] = await Promise.all([
         get("/api/workers/me"),
         get("/api/bookings"),
+        get("/api/worker/welfare"),
       ]);
 
       setProfile(workerResponse.worker);
@@ -145,6 +148,7 @@ export default function WorkerDashboard() {
       );
 
       setJobs(bookingResponse.bookings || []);
+      setWelfare(welfareResponse);
     } catch (error) {
       toast.error(
         error.message || "Worker dashboard load नहीं हुआ।"
@@ -253,6 +257,40 @@ export default function WorkerDashboard() {
       () => toast.error("Could not read location")
     );
   };
+  const sendEmergencyAlert = () => {
+    if (!window.confirm("Send an emergency alert to the administrator?")) return;
+    setAlerting(true);
+
+    const send = async (lat, lng) => {
+      try {
+        const activeBooking = jobs.find((job) =>
+          ["assigned", "on_the_way"].includes(job.status)
+        );
+        await post("/api/worker/emergency", {
+          bookingId: activeBooking?.id || null,
+          message: "Worker requested emergency assistance",
+          lat,
+          lng,
+        });
+        toast.success("Emergency alert sent to admin.");
+        await load();
+      } catch (error) {
+        toast.error(error.message || "Emergency alert failed.");
+      } finally {
+        setAlerting(false);
+      }
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => send(position.coords.latitude, position.coords.longitude),
+        () => send(profile.lat, profile.lng)
+      );
+    } else {
+      send(profile.lat, profile.lng);
+    }
+  };
+
   if (authLoading || loading) {
   return <Loader />;
 }
@@ -407,6 +445,66 @@ const workerName =
           label="Payment pending"
           value={`₹${pendingEarnings}`}
         />
+      </div>
+
+      <div className="card space-y-4 border-rose-100 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-bold text-gray-900">Worker Welfare & Safety</h2>
+            <p className="text-sm text-gray-600">Insurance, emergency contact and live safety support.</p>
+          </div>
+          <span className={`rounded-full px-3 py-1 text-xs font-bold ${
+            profile.safetyStatus === "emergency"
+              ? "bg-rose-100 text-rose-700"
+              : "bg-emerald-100 text-emerald-700"
+          }`}>
+            {profile.safetyStatus === "emergency" ? "🚨 Emergency" : `🛡 ${profile.safetyStatus || "safe"}`}
+          </span>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl bg-blue-50 p-3">
+            <p className="text-xs text-gray-500">Verification</p>
+            <p className="font-semibold text-blue-700">{profile.verification === "approved" || profile.isVerified ? "✅ Verified" : "⏳ Pending"}</p>
+          </div>
+          <div className="rounded-xl bg-emerald-50 p-3">
+            <p className="text-xs text-gray-500">Insurance</p>
+            <p className="font-semibold text-emerald-700">
+              {profile.insuranceStatus === "active" ? "🛡 Active" : "Inactive"}
+            </p>
+          </div>
+          <div className="rounded-xl bg-slate-50 p-3">
+            <label className="text-xs text-gray-500">Emergency contact</label>
+            <input
+              className="mt-1 w-full bg-transparent text-sm font-semibold outline-none"
+              defaultValue={profile.emergencyContact || ""}
+              placeholder="Phone number"
+              onBlur={(event) =>
+                update({ emergencyContact: event.target.value }, "Emergency contact updated")
+              }
+            />
+          </div>
+        </div>
+
+        {welfare?.benefits?.length ? (
+          <div className="grid gap-2 sm:grid-cols-3">
+            {welfare.benefits.map((benefit) => (
+              <div key={benefit.name} className="rounded-xl border border-gray-100 p-3 text-xs">
+                <p className="font-bold text-gray-800">{benefit.name}</p>
+                <p className="capitalize text-gray-500">{benefit.status}</p>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={sendEmergencyAlert}
+          disabled={alerting}
+          className="w-full rounded-xl bg-red-600 px-4 py-4 text-lg font-bold text-white hover:bg-red-700 disabled:opacity-60"
+        >
+          {alerting ? "Sending alert…" : "🚨 Send Emergency Alert"}
+        </button>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">

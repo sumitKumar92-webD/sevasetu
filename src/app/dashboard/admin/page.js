@@ -19,17 +19,20 @@ export default function AdminDashboard() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("pending");
+  const [safetyAlerts, setSafetyAlerts] = useState([]);
 
   const load = useCallback(async () => {
     try {
-      const [s, w, b] = await Promise.all([
+      const [s, w, b, a] = await Promise.all([
         get("/api/admin/stats"),
         get("/api/admin/workers"),
         get("/api/bookings"),
+        get("/api/admin/safety-alerts"),
       ]);
       setStats(s.stats);
       setWorkers(w.workers || []);
       setBookings(b.bookings || []);
+      setSafetyAlerts(a.alerts || []);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -49,6 +52,16 @@ export default function AdminDashboard() {
       load();
     } catch (err) {
       toast.error(err.message);
+    }
+  };
+
+  const updateAlert = async (id, status) => {
+    try {
+      await patch(`/api/admin/safety-alerts/${id}`, { status });
+      toast.success(status === "resolved" ? "Safety alert resolved" : "Alert acknowledged");
+      load();
+    } catch (error) {
+      toast.error(error.message);
     }
   };
 
@@ -74,6 +87,50 @@ export default function AdminDashboard() {
         <MiniCard title={t("admin.pending")} value={stats.pending} tone="amber" />
         <MiniCard title="Verified workers" value={stats.approved} tone="emerald" />
         <MiniCard title="Emergency bookings" value={stats.emergency} tone="rose" />
+      </div>
+
+      {/* Worker safety alerts */}
+      <div className="card space-y-3 border-rose-200 p-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-bold text-gray-900">🚨 Worker Safety Alerts</p>
+          <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700">
+            {safetyAlerts.filter((alert) => alert.status !== "resolved").length} open
+          </span>
+        </div>
+        {safetyAlerts.length ? (
+          safetyAlerts.slice(0, 10).map((alert) => (
+            <div key={alert.id} className="rounded-xl border border-rose-100 bg-rose-50/40 p-3 text-sm">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="font-bold text-gray-900">{alert.workerName}</p>
+                  <p className="text-xs text-gray-600">{alert.workerPhone || "No phone"} · {alert.message}</p>
+                  <p className="text-xs text-gray-500">{new Date(alert.createdAt).toLocaleString()}</p>
+                  {alert.lat != null && alert.lng != null && (
+                    <a
+                      href={`https://www.openstreetmap.org/?mlat=${alert.lat}&mlon=${alert.lng}#map=16/${alert.lat}/${alert.lng}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-semibold text-teal-700 hover:underline"
+                    >
+                      📍 View location
+                    </a>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  {alert.status === "open" && (
+                    <button className="btn btn-ghost !py-1" onClick={() => updateAlert(alert.id, "acknowledged")}>Acknowledge</button>
+                  )}
+                  {alert.status !== "resolved" && (
+                    <button className="btn btn-primary !py-1" onClick={() => updateAlert(alert.id, "resolved")}>Resolve</button>
+                  )}
+                  {alert.status === "resolved" && <span className="text-xs font-bold text-emerald-700">Resolved</span>}
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="text-xs text-gray-500">No worker safety alerts.</p>
+        )}
       </div>
 
       {/* Bookings per service */}

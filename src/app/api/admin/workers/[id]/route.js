@@ -22,7 +22,11 @@ export async function PATCH(request, context) {
 
   const worker = await Worker.findByIdAndUpdate(
     id,
-    { verification: body.verification, adminNote: body.adminNote || "" },
+    {
+      verification: body.verification,
+      isVerified: body.verification === "approved",
+      adminNote: body.adminNote || "",
+    },
     { new: true }
   );
 
